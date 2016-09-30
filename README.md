@@ -17,6 +17,8 @@ Main model is *CompressiveSummarizerModel*.
 
 * *IndependentCardinalityPotentialsExtractor*: uses k-constrained inference to
   extract summaries.
+* *TreeConstrainedExtractor*: uses k- and discourse-parse constrained 
+  inference to extract summaries.
 
 *ExtractorLoss* implementations:
 
