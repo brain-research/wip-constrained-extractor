@@ -68,6 +68,56 @@ def normalize(vec):
   return safe_divide(vec, z), z
 
 
+def safe_log(t):
+  """Logarithm that returns 0 for log(0), for easy masking."""
+  zeros_t = tf.zeros_like(t)
+  ones_t = tf.ones_like(t)
+  safe = tf.log(tf.select(tf.equal(t, zeros_t), ones_t, t))
+  return safe
+
+
+def safe_divide_and_log(n, d):
+  """Log and div returning 0 for log(0) and div by 0, for easy masking."""
+  zeros_d = tf.zeros_like(d)
+  ones_d = tf.ones_like(d)
+  is_zero = tf.equal(d, zeros_d)
+  safe_denom = tf.select(is_zero, ones_d, d)
+  safe = tf.log(safe_denom)
+  return n / safe_denom, safe
+
+
+def all_reduce_sum(t, dim):
+  """Like reduce_sum, but broadcasts sum out to every entry in reduced dim."""
+  t_shape = t.get_shape()
+  rank = t.get_shape().ndims
+  return tf.tile(
+      tf.expand_dims(tf.reduce_sum(t, dim), dim),
+      [1] * dim + [t_shape[dim].value] + [1] * (rank - dim - 1))
+
+
+def normalize_all_reduce(vec):
+  """Like normalize, but broadcasts norm out to every entry."""
+  # just return zeros if incoming vec equals zeros
+  z = all_reduce_sum(vec, 1)
+  return safe_divide(vec, z), z
+
+
+def normalize_and_log(vec):
+  """Like normalize, but also returns log-normalizer."""
+  # just return zeros if incoming vec equals zeros
+  z = tf.expand_dims(tf.reduce_sum(vec, 1), 1)
+  normed, logz = safe_divide_and_log(vec, z)
+  return normed, z, logz
+
+
+def normalize_and_log_all_reduce(vec):
+  """Like normalize_all_reduce, but also returns log-normalizer."""
+  # just return zeros if incoming vec equals zeros
+  z = all_reduce_sum(vec, 1)
+  normed, logz = safe_divide_and_log(vec, z)
+  return normed, z, logz
+
+
 def create_log_mask(lengths, max_len):
   """Create a float mask in log-space corresponding to lengths."""
   reg_mask = create_mask(lengths, max_len)
@@ -108,8 +158,8 @@ def deep_birnn(hps, inputs, sequence_length, num_layers=1):
           "w", [hps.word_embedding_size + hps.hidden_size, 4 * hps.hidden_size])
       b = tf.get_variable("b", [4 * hps.hidden_size])
       if sequence_length is not None:
-        rev_inputs = tf.reverse_sequence(inputs,
-                                         tf.to_int64(sequence_length), 1)
+        rev_inputs = tf.reverse_sequence(inputs, tf.to_int64(sequence_length),
+                                         1)
       else:
         rev_inputs = tf.reverse(inputs, 1)
 
@@ -117,7 +167,10 @@ def deep_birnn(hps, inputs, sequence_length, num_layers=1):
                           for t in tf.split(1, hps.num_art_steps, rev_inputs)]
       (_, _, _, _, _, _, h) = block_lstm(
           tf.to_int64(hps.num_art_steps),
-          split_rev_inputs, w, b, forget_bias=1.0)
+          split_rev_inputs,
+          w,
+          b,
+          forget_bias=1.0)
       bwd_outs = h
       bwd_outs = tf.concat(1, [tf.expand_dims(bwdo, 1) for bwdo in bwd_outs])
       bwd_outs *= sequence_length_mask
