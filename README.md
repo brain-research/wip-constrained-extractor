@@ -1,3 +1,8 @@
+# Disclaimer
+
+This is not an official Google product. This is work-in-progess research code
+and is completely unsupported and may even be unfinished.
+
 # Models for extractive summarization
 
 Inference, learning, and evaluation code for extractive summarization.
