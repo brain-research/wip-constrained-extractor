@@ -27,7 +27,7 @@ Main model is *CompressiveSummarizerModel*.
 
 *ExtractorLoss* implementations:
 
-* *OracleXentExtractorLoss*: learns to extract summaries using supervised
+* *OracleXentExtractorLoss*: learn to extract summaries using supervised
   labels.
-* *ROUGEReinforceExtractorLoss*: learns to extract summaries using ROUGE-1
+* *ROUGEReinforceExtractorLoss*: learn to extract summaries using ROUGE-1
   recall with the ground truth summary and REINFORCE algorithm.
